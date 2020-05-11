@@ -35,6 +35,10 @@
     if (self) {
         self.maximumImagesCount = 4;
     }
+	
+    if (@available(iOS 13.0, *)) {
+        [self.viewController setModalPresentationStyle: UIModalPresentationFullScreen];
+    }
     return self;
 }
 
