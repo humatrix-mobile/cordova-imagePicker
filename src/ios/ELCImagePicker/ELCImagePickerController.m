@@ -37,7 +37,7 @@
     }
 	
     if (@available(iOS 13.0, *)) {
-        [self.viewController setModalPresentationStyle: UIModalPresentationFullScreen];
+        [self setModalPresentationStyle: UIModalPresentationFullScreen];
     }
     return self;
 }
