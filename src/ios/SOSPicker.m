@@ -26,29 +26,90 @@
 	self.quality = [[options objectForKey:@"quality"] integerValue];
 
 	// Create the an album controller and image picker
-	ELCAlbumPickerController *albumController = [[ELCAlbumPickerController alloc] init];
+// 	ELCAlbumPickerController *albumController = [[ELCAlbumPickerController alloc] init];
 	
-	if (maximumImagesCount == 1) {
-      albumController.immediateReturn = true;
-      albumController.singleSelection = true;
-   } else {
-      albumController.immediateReturn = false;
-      albumController.singleSelection = false;
-   }
+// 	if (maximumImagesCount == 1) {
+//       albumController.immediateReturn = true;
+//       albumController.singleSelection = true;
+//    } else {
+//       albumController.immediateReturn = false;
+//       albumController.singleSelection = false;
+//    }
    
-   ELCImagePickerController *imagePicker = [[ELCImagePickerController alloc] initWithRootViewController:albumController];
-   imagePicker.maximumImagesCount = maximumImagesCount;
-   imagePicker.returnsOriginalImage = 1;
-   imagePicker.imagePickerDelegate = self;
+//    ELCImagePickerController *imagePicker = [[ELCImagePickerController alloc] initWithRootViewController:albumController];
+//    imagePicker.maximumImagesCount = maximumImagesCount;
+//    imagePicker.returnsOriginalImage = 1;
+//    imagePicker.imagePickerDelegate = self;
 
-   albumController.parent = imagePicker;
-	self.callbackId = command.callbackId;
-	// Present modally
-	[self.viewController presentViewController:imagePicker
-	                       animated:YES
-	                     completion:nil];
+//    albumController.parent = imagePicker;
+// 	self.callbackId = command.callbackId;
+// 	// Present modally
+// 	[self.viewController presentViewController:imagePicker
+// 	                       animated:YES
+// 	                     completion:nil];
+	
+	
+    self.callbackId = command.callbackId;
+    UIImagePickerController *imagePickController=[[UIImagePickerController alloc]init];
+    imagePickController.sourceType=UIImagePickerControllerSourceTypePhotoLibrary;
+    imagePickController.delegate=self;
+    imagePickController.allowsEditing=FALSE;
+    imagePickController.modalPresentationStyle = UIModalPresentationFullScreen;
+    [self.viewController presentModalViewController:imagePickController animated:YES];
 }
 
+#pragma mark - When finish shoot
+
+-(void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary *)info
+{
+    [self elcImagePickerController:info];
+}
+
+- (void)imagePickerControllerDidCancel:(UIImagePickerController *)imagePicker
+{
+   [self elcImagePickerControllerDidCancel:NULL];
+}
+
+- (void)elcImagePickerController:(NSDictionary *)info {
+    CDVPluginResult* result = nil;
+    NSMutableArray *resultStrings = [[NSMutableArray alloc] init];
+    NSData* data = nil;
+    NSString* docsPath = [NSTemporaryDirectory()stringByStandardizingPath];
+    NSError* err = nil;
+    NSFileManager* fileMgr = [[NSFileManager alloc] init];
+    NSString* filePath;
+    UIImageOrientation orientation = UIImageOrientationUp;;
+    CGSize targetSize = CGSizeMake(self.width, self.height);
+
+
+    int i = 1;
+    do {
+        filePath = [NSString stringWithFormat:@"%@/%@%03d.%@", docsPath, CDV_PHOTO_PREFIX, i++, @"jpg"];
+    } while ([fileMgr fileExistsAtPath:filePath]);
+    
+    @autoreleasepool {
+        UIImage* image = (UIImage*) [info objectForKey:UIImagePickerControllerOriginalImage];
+        if (self.width == 0 && self.height == 0) {
+            data = UIImageJPEGRepresentation(image, self.quality/100.0f);
+        } else {
+            UIImage* scaledImage = [self imageByScalingNotCroppingForSize:image toSize:targetSize];
+            data = UIImageJPEGRepresentation(scaledImage, self.quality/100.0f);
+        }
+        
+        if (![data writeToFile:filePath options:NSAtomicWrite error:&err]) {
+            result = [CDVPluginResult resultWithStatus:CDVCommandStatus_IO_EXCEPTION messageAsString:[err localizedDescription]];
+        } else {
+            [resultStrings addObject:[[NSURL fileURLWithPath:filePath] absoluteString]];
+        }
+    }
+    
+    if (nil == result) {
+        result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:resultStrings];
+    }
+
+    [self.viewController dismissViewControllerAnimated:YES completion:nil];
+    [self.commandDelegate sendPluginResult:result callbackId:self.callbackId];
+}
 
 - (void)elcImagePickerController:(ELCImagePickerController *)picker didFinishPickingMediaWithInfo:(NSArray *)info {
 	CDVPluginResult* result = nil;
